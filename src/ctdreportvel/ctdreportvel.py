@@ -117,7 +117,7 @@ if len(sys.argv) >= 2:
                 'menuTitle': 'About',
                 'name': 'ctdreportvel',
                 'description': 'CTD Interactif Report for Starfix .vel files',
-                'version': '0.1.0',
+                'version': '0.1.1',
                 'copyright': '2020',
                 'website': 'https://github.com/Shadoward/ctdreport-vel',
                 'developer': 'patrice.ponchant@fugro.com',
@@ -226,10 +226,18 @@ def process(args, cmd):
     #now = datetime.datetime.now() # record time of the subprocess
     
     if args.velFolder is not None:
-        velListFile = glob.glob(velFolder + "\\*.vel")
-        if not velListFile:
+        velListFile = []
+        velListemtpy = []
+        velListtmp = glob.glob(velFolder + "\\*.vel")
+        if not velListtmp:
             print ('')
             sys.exit(stylize('No .vel files were found, quitting', fg('red')))
+        for f in velListtmp:
+            if os.stat(f).st_size == 0:
+                velListemtpy.append(f)
+            else:
+                velListFile.append(f)
+                
         velsplitlist = [velListFile[i:i + numberfile] for i in range(0, len(velListFile), numberfile)]
         pbar = tqdm(total=len(velsplitlist)) if cmd else print(f"Note: Output show file counting every {math.ceil(len(velsplitlist)/10)}", flush=True) # cmd vs GUI
         i = 0
@@ -238,6 +246,10 @@ def process(args, cmd):
             progressBar(cmd, pbar, i, velsplitlist)
             i += 1
         
+        if velListemtpy:
+            print('', flush=True)
+            print('The following file(s) was/were skip beacause there are empty.', flush=True)
+            print(velListemtpy, flush=True)
         
         # for index, f in enumerate(velListFile):
         #     multiplegraph(velListFile, outputFolder, velCalc, instrument, geodetic)            
