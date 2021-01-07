@@ -117,7 +117,7 @@ if len(sys.argv) >= 2:
                 'menuTitle': 'About',
                 'name': 'ctdreportvel',
                 'description': 'CTD Interactif Report for Starfix .vel files',
-                'version': '0.1.1',
+                'version': '0.1.2',
                 'copyright': '2020',
                 'website': 'https://github.com/Shadoward/ctdreport-vel',
                 'developer': 'patrice.ponchant@fugro.com',
@@ -735,13 +735,6 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
     dfvel.sort_values(['file', 'depth'], ascending=[True, False], inplace=True)
 
     ################ PLOTS PARAMETERS ################
-    vToolTips = [("Depth", "$y{0.1f} m"),
-                 ("SV", "$x{0.1f} m/s")]
-    
-    tToolTips = [("Depth", "$y{0.1f} m"),
-                 ("Temp", "$x{0.1f} °C")]
-
-
     plot_options = dict(y_axis_label='Depth [Hydrostatic, m]',
                         background_fill_color='#F4ECDC',
                         width=600,
@@ -755,32 +748,44 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
     ###### -- Figure -- ########
     renderer_list = []
     legend_items = []
-    #tbData = []
-    line0 = figure(**plot_options, tooltips=vToolTips)
-    line1 = figure(y_range=line0.y_range, **plot_options, tooltips=tToolTips)
+    line0 = figure(**plot_options)#, tooltips=vToolTips)
+    line1 = figure(y_range=line0.y_range, **plot_options)#, tooltips=tToolTips)
     
-    #xaxis = LinearAxis(line0=line0, location="above")
-    i = 0
     for (name, group), color in zip(dfvel.groupby('file'), FugroColorList):
-        l0 = line0.line(x=group.velocity, y=group.depth, color=color)
+        source = ColumnDataSource(dict(Depth=group.depth,
+                            Sound_Velocity=group.velocity,
+                            Temperature=group.temperature))
+        l0 = line0.line(x="Sound_Velocity", y="Depth", color=color, source=source)
         line0.xaxis.axis_label = svp
         line0.x_range.bounds = 'auto'
         line0.y_range.bounds = 'auto'
         line0.axis.axis_label_text_font_size = "14pt"
         line0.axis.axis_label_text_font_style = "bold"
         
-        l1 = line1.line(x=group.temperature, y=group.depth, color=color)
+        l1 = line1.line(x="Temperature", y="Depth", color=color, source=source)
         line1.xaxis.axis_label = "Temperature [°C]"
         line1.x_range.bounds = 'auto'
         line1.y_range.bounds = 'auto'
         line1.axis.axis_label_text_font_size = "14pt"
         line1.axis.axis_label_text_font_style = "bold"
         
+        line0.add_tools(HoverTool(renderers=[l0], 
+                                  tooltips=[("CTD", name),
+                                            ("Depth", "$y{0.1f} m"),
+                                            ("SV", "$x{0.1f} m/s"),
+                                            ("Temp.", "@Temperature{0.1f} °C")],
+                                  mode='mouse'))
+        line1.add_tools(HoverTool(renderers=[l1],
+                                  tooltips=[("CTD", name),
+                                            ("Depth", "$y{0.1f} m"),
+                                            ("Temp.", "$x{0.1f} °C"),
+                                            ("SV", "@Sound_Velocity{0.1f} m/s")],
+                                  mode='mouse'))
+    
+        
         renderer_list += [l0, l1]
         legend_items.append(LegendItem(label=name, renderers=[l0, l1]))
-        
-        #tbData.append(multi_table(group.depth,group.velocity,group.temperature,svp))
-         
+  
     # https://stackoverflow.com/questions/56825350/how-to-add-one-legend-for-that-controlls-multiple-bokeh-figures
     # https://stackoverflow.com/questions/61115734/how-to-work-with-columndatasource-and-legenditem-together-in-bokeh
 
