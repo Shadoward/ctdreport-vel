@@ -27,7 +27,7 @@ extras_require = {
 
 setup(
     name='ctdreportvel',
-    version='0.1.2',
+    version='0.2.0',
     description='CTD Interactif Report for Starfix .vel files.',
     long_description=readme,
     author='Patrice Ponchant',

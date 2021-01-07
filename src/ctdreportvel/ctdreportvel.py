@@ -117,7 +117,7 @@ if len(sys.argv) >= 2:
                 'menuTitle': 'About',
                 'name': 'ctdreportvel',
                 'description': 'CTD Interactif Report for Starfix .vel files',
-                'version': '0.1.2',
+                'version': '0.2.0',
                 'copyright': '2020',
                 'website': 'https://github.com/Shadoward/ctdreport-vel',
                 'developer': 'patrice.ponchant@fugro.com',
@@ -269,7 +269,8 @@ def lsinfo(f):
     row0_1 = row0[0].split('Date: ')
     row0_2 = row0_1[0].split('Job Number: ')
     Job_Number = row0_2[-1]
-    Date = row0_1[-1]
+    s = row0_1[-1]
+    Date = datetime.datetime.strptime(row0_1[-1].rstrip(), '%B %d, %Y').strftime("%d %B %Y")
     Time = row0[-1]
     # Value from row 1
     Vessel = dfinfo[0].iloc[1].split('Vessel: ')[-1]
@@ -708,7 +709,7 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
         filename = str(os.path.splitext(os.path.basename(velFilesSelect[0]))[0]) + '_to_' + str(os.path.splitext(os.path.basename(velFilesSelect[-1]))[0])
     
     dfinfo = pd.DataFrame(columns = ['CTD Name', 'Date', 'Time', 'Latitude', 'Longitude', 'Easting [m]', 'Northing [m]', 
-                                     'Max. Depth [m]', 'Average SV [m/s]', 'SV at Seabed [m/s]', 'Temperature at Seabed [°C]'])
+                                     'Max. Depth [m]', 'Average SV [m/s]', 'SV at Seabed [m/s]', 'Temperature at Seabed [degC]'])
     
     
     svp = "Sound Velocity [" + velCalc + ", m/s]" if velCalc is not None else "Sound Velocity [m/s]"
@@ -774,13 +775,15 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
                                             ("Depth", "$y{0.1f} m"),
                                             ("SV", "$x{0.1f} m/s"),
                                             ("Temp.", "@Temperature{0.1f} °C")],
-                                  mode='mouse'))
+                                  mode='mouse',
+                                  line_policy="interp"))
         line1.add_tools(HoverTool(renderers=[l1],
                                   tooltips=[("CTD", name),
                                             ("Depth", "$y{0.1f} m"),
-                                            ("Temp.", "$x{0.1f} °C"),
-                                            ("SV", "@Sound_Velocity{0.1f} m/s")],
-                                  mode='mouse'))
+                                            ("SV", "@Sound_Velocity{0.1f} m/s"),
+                                            ("Temp.", "$x{0.1f} °C")],
+                                  mode='mouse',
+                                  line_policy="interp"))
     
         
         renderer_list += [l0, l1]
@@ -869,25 +872,33 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
 
     button = Button(label="Download", button_type="success")
 
+        # var ordercolumns = [{
+        #     'CTD Number': columns.CTD_Number,
+        #     'Depth [m]': columns.Depth,
+        #     'Sound Velocity [m/s]': columns.Sound_Velocity,
+        #     'Temperature [°s]': columns.Temperature,
+        #     }]
+
+    # Not very nice but this order the csv file and rename the colunms properly
     javaScript="""
     function table_to_csv(source) {
         const columns = Object.keys(source.data)
         const nrows = source.get_length()
-        const lines = [columns.join(',')]
+        const lines = [['CTD Number','Depth [m]','Sound Velocity [m/s]','Temperature [degC]'].join(',')]
 
         for (let i = 0; i < nrows; i++) {
             let row = [];
-            for (let j = 0; j < columns.length; j++) {
-                const column = columns[j]
-                row.push(source.data[column][i].toString())
-            }
+            row.push(source.data['CTD_Number'][i].toString())
+            row.push(source.data['Depth'][i].toString())
+            row.push(source.data['Sound_Velocity'][i].toString())
+            row.push(source.data['Temperature'][i].toString())
             lines.push(row.join(','))
         }
         return lines.join('\\n').concat('\\n')
     }
 
     var filetext = table_to_csv(source)
-    var CTD_Number = ctd_select_obj.value.replace('.vel','');
+    var CTD_Number = ctd_select_obj.value.replace('.vel','')
     const fname = CTD_Number + '_CTD_Data.csv'
     const blob = new Blob([filetext], { type: 'text/csv;charset=utf-8;' })
 
@@ -909,10 +920,61 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
     widgets = column([ctd_select, button], height=250, width=300)
     datatbl = column(row(widgets, data_table), sizing_mode="stretch_both")
 
-    ###### Info Table ###### 
+    ###### Info Table ######   
     columnsInfo = [TableColumn(field=Ci, title=Ci, width=None) for Ci in dfinfo.columns] # bokeh columns
-    info_table = DataTable(columns=columnsInfo, source=ColumnDataSource(dfinfo), autosize_mode="fit_columns", height=25*len(dfinfo)+25) # bokeh table
-    infotbl = layout([[info_table]], sizing_mode='stretch_width')
+    info_table = DataTable(columns=columnsInfo, source=ColumnDataSource(dfinfo), autosize_mode="fit_columns", 
+                           height=25*len(dfinfo)+25) # bokeh table
+    
+    saveinfo =Button(label="Download", button_type="success", height=30, width=90)
+    
+    # Not very nice but this order the csv file and rename the colunms properly
+    javaScript="""
+    function table_to_csv(source) {
+        const columns = Object.keys(source.data)
+        const nrows = source.get_length()
+        const lines = [['CTD Name', 'Date', 'Time', 'Latitude', 'Longitude', 'Easting [m]', 'Northing [m]', 
+                        'Max. Depth [m]', 'Average SV [m/s]', 'SV at Seabed [m/s]', 'Temperature at Seabed [degC]'].join(',')]
+
+        for (let i = 0; i < nrows; i++) {
+            let row = [];
+            row.push(source.data['CTD Name'][i].toString())
+            row.push(source.data['Date'][i].toString())
+            row.push(source.data['Time'][i].toString())
+            row.push(source.data['Latitude'][i].toString())
+            row.push(source.data['Longitude'][i].toString())
+            row.push(source.data['Easting [m]'][i].toString())
+            row.push(source.data['Northing [m]'][i].toString())
+            row.push(source.data['Max. Depth [m]'][i].toString())
+            row.push(source.data['Average SV [m/s]'][i].toString())
+            row.push(source.data['SV at Seabed [m/s]'][i].toString())
+            row.push(source.data['Temperature at Seabed [degC]'][i].toString())
+            lines.push(row.join(','))
+        }
+        return lines.join('\\n').concat('\\n')
+    }
+    var filetext = table_to_csv(source)
+    const fname = 'CTD_SummaryTable.csv'
+    const blob = new Blob([filetext], { type: 'text/csv;charset=utf-8;' })
+
+    //addresses IE
+    if (navigator.msSaveBlob) {
+        navigator.msSaveBlob(blob, fname)
+    } else {
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = fname
+        link.target = '_blank'
+        link.style.visibility = 'hidden'
+        link.dispatchEvent(new MouseEvent('click'))
+    }
+    """
+
+    saveinfo.js_on_click(CustomJS(args=dict(source=ColumnDataSource(dfinfo)),code=javaScript))
+    
+    widgets = row([saveinfo], height=33)
+    infotbl = layout([widgets, info_table], sizing_mode="stretch_width")
+    
+    #infotbl = layout([[info_table]], sizing_mode='stretch_width')
 
     ########## RENDER PLOTS ################
     ###### -- Define our html template for out plots -- ########
