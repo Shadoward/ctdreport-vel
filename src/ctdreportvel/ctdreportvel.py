@@ -280,7 +280,7 @@ def lsinfo(f):
     Client = row1[0].split('Client: ')[-1]
     # Value from row 3
     row0 = dfinfo[0].iloc[3].split('Time: ')
-    row0_1 = row0[0].split('X:  ')
+    row0_1 = row0[0].split('X: ')
     row0_2 = row0_1[0].split('Y:  ')
     row0_3 = row0_2[0].split('Lon: ')
     Easting = row0_1[-1]
@@ -350,6 +350,8 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
         line0.y_range.bounds = 'auto'
         line0.axis.axis_label_text_font_size = "14pt"
         line0.axis.axis_label_text_font_style = "bold"
+        line0.xaxis.axis_label_standoff = 15
+        line0.yaxis.axis_label_standoff = 15
         
         l1 = line1.line(x="Temperature", y="Depth", color=color, source=source)
         line1.xaxis.axis_label = "Temperature [°C]"
@@ -357,6 +359,8 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
         line1.y_range.bounds = 'auto'
         line1.axis.axis_label_text_font_size = "14pt"
         line1.axis.axis_label_text_font_style = "bold"
+        line1.xaxis.axis_label_standoff = 15
+        line1.yaxis.axis_label_standoff = 15
         
         line0.add_tools(HoverTool(renderers=[l0], 
                                   tooltips=[("CTD", name),
@@ -410,10 +414,10 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
                                        Temperature=dfvel['temperature'],
                                        CTD_Number=dfvel['file']))
     
-    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00"), width=None),
-                TableColumn(field="Sound_Velocity", title=svp, formatter=NumberFormatter(format="0.00"), width=None),
-                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00"), width=None),
-                TableColumn(field="CTD_Number", title="CTD Number", width=None),
+    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00")),
+                TableColumn(field="Sound_Velocity", title=svp, formatter=NumberFormatter(format="0.00")),
+                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00")),
+                TableColumn(field="CTD_Number", title="CTD Number"),
                 ]
     data_table = DataTable(source=source, columns=columns, sizing_mode="stretch_width")
     
@@ -509,7 +513,7 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
     datatbl = column(row(widgets, data_table), sizing_mode="stretch_both")
 
     ###### Info Table ######   
-    columnsInfo = [TableColumn(field=Ci, title=Ci, width=None) for Ci in dfinfo.columns] # bokeh columns
+    columnsInfo = [TableColumn(field=Ci, title=Ci) for Ci in dfinfo.columns] # bokeh columns
     info_table = DataTable(columns=columnsInfo, source=ColumnDataSource(dfinfo), autosize_mode="fit_columns", 
                            height=25*len(dfinfo)+25) # bokeh table
     
@@ -816,9 +820,9 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
 def multi_table(d,sv,t,svp):
     source = ColumnDataSource(data=dict())
     source.data = {'Depth': d, 'SoundVelocity': sv, 'Temperature': t}
-    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00"), width=None),
-                TableColumn(field="SoundVelocity", title=svp, formatter=NumberFormatter(format="0.00"), width=None),
-                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00"), width=None),
+    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00")),
+                TableColumn(field="SoundVelocity", title=svp, formatter=NumberFormatter(format="0.00")),
+                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00")),
                 ]
     data_table = DataTable(source=source, columns=columns, autosize_mode="fit_columns")
     return data_table
