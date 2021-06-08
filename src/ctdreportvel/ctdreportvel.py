@@ -17,7 +17,9 @@ import sys
 import glob
 import os
 import math
+from xml.etree.ElementTree import TreeBuilder
 import pandas as pd
+import json
 #import numpy as np
 
 # gaph
@@ -97,6 +99,7 @@ if len(sys.argv) >= 2:
     progress_expr="current / total * 100",
     hide_progress_msg=True,
     richtext_controls=True,
+    clear_before_run=True,
     #richtext_controls=True,
     terminal_font_family = 'Courier New', # for tabulate table nice formatation
     #dump_build_config=True,
@@ -134,6 +137,20 @@ if len(sys.argv) >= 2:
     )
 
 def main():
+    """ Use GooeyParser to build up the arguments we will use in our script
+    Save the arguments in a default json file so that we can retrieve them
+    every time we run the script.
+    """
+    stored_args = {}
+    # get the script name without the extension & use it to build up
+    # the json filename
+    script_name = os.path.splitext(os.path.basename(__file__))[0]
+    args_file = "{}-args.json".format(script_name)
+    # Read in the prior arguments as a dictionary
+    if os.path.isfile(args_file):
+        with open(args_file) as data_file:
+            stored_args = json.load(data_file)    
+    
     desc = "CTD Interactif Report for Starfix .vel files"    
     parser = GooeyParser(description=desc)
     
@@ -146,15 +163,17 @@ def main():
         dest='velFolder',       
         metavar='.vel Folder Path', 
         help='Option to be use to create unique report for each .vel in the folder',
+        default=stored_args.get('velFolder'),
         widget='DirChooser')
     
     mainopt.add_argument(
         '-n', '--numberfile', 
         dest='numberfile',       
-        metavar='Number of files', 
+        metavar='Number of files',
         help='Number of files to be merge in one report.\n For more visibilty, please try to not pass 10 files per graph)',
         type=int,
-        default=1)
+        default=stored_args.get('numberfile'))
+        #default=1)
 
     # mainopt.add_argument(
     #     '-f', '--velFilesSelect', 
@@ -167,7 +186,8 @@ def main():
     mainopt.add_argument(
         '-o', '--outputFolder',
         dest='outputFolder',
-        metavar='Output Logs Folder',  
+        metavar='Output Logs Folder', 
+        default=stored_args.get('outputFolder'), 
         help='Output folder to save all the report files.',
         widget='DirChooser')
     
@@ -177,13 +197,15 @@ def main():
         dest='instrument',
         metavar='Instrument Name', 
         widget='TextField',
-        default='AML Oceanographic - Smart-X CTD',
+        default=stored_args.get('instrument'),
+        #default='AML Oceanographic - Smart-X CTD',
         help='Instrument used to collect the sound velocity data.')
     
     metaopt.add_argument(
         '-c', '--velCalc', 
         dest='velCalc',
         metavar='Velocity Calculation', 
+        default=stored_args.get('velCalc'),
         choices=['Chen Millero', 'Del Grosso', 'Wilson'],
         help='Velocity Calculation used to calculate sound velocity.')
     
@@ -191,8 +213,8 @@ def main():
         '-g', '--geodetic', 
         dest='geodetic',
         metavar='Geodetic Parameters', 
-        widget='TextField',
-        default='NAD83(2011) / UTM zone 19N | EPSG Code: 6348',
+        widget='TextField',        
+        default=stored_args.get('geodetic'), #'NAD83(2011) / UTM zone 19N | EPSG Code: 6348',
         help='Geodetic parameters of the cooredinates.')    
     
         
@@ -202,6 +224,12 @@ def main():
     #    sys.exit(1)   
         
     args = parser.parse_args()
+    
+    # Store the values of the arguments so we have them next time we run
+    with open(args_file, 'w') as data_file:
+        # Using vars(args) returns the data as a dictionary
+        json.dump(vars(args), data_file, indent=1)
+        
     process(args, cmd)
 
 def process(args, cmd):
@@ -265,29 +293,30 @@ def lsinfo(f):
     # Headers info
     dfinfo = pd.read_csv(f, nrows=4, sep="99aa99", header=None, engine='python')
     # Value from row 0
-    row0 = dfinfo[0].iloc[0].split('Time: ')
-    row0_1 = row0[0].split('Date: ')
-    row0_2 = row0_1[0].split('Job Number: ')
-    Job_Number = row0_2[-1]
-    s = row0_1[-1]
-    Date = datetime.datetime.strptime(row0_1[-1].rstrip(), '%B %d, %Y').strftime("%d %B %Y")
-    Time = row0[-1]
+    row0 = dfinfo[0].iloc[0].split('Time:')
+    row0_1 = row0[0].split('Date:')
+    row0_2 = row0_1[0].split('Job Number:')
+    Job_Number = row0_2[-1].lstrip()
+    s = row0_1[-1].lstrip()
+    Date = datetime.datetime.strptime(row0_1[-1].rstrip().lstrip(), '%B %d, %Y').strftime("%d %B %Y")
+    Time = row0[-1].lstrip()
     # Value from row 1
-    Vessel = dfinfo[0].iloc[1].split('Vessel: ')[-1]
+    Vessel = dfinfo[0].iloc[1].split('Vessel:')[-1].lstrip()
     # Value from row 2
-    row1 = dfinfo[0].iloc[2].split('Area: ')
-    Area = row1[-1]
-    Client = row1[0].split('Client: ')[-1]
+    row1 = dfinfo[0].iloc[2].split('Area:')
+    Area = row1[-1].lstrip()
+    Client = row1[0].split('Client:')[-1].lstrip()
     # Value from row 3
-    row0 = dfinfo[0].iloc[3].split('Time: ')
-    row0_1 = row0[0].split('X: ')
-    row0_2 = row0_1[0].split('Y:  ')
-    row0_3 = row0_2[0].split('Lon: ')
-    Easting = row0_1[-1]
-    Northing = row0_2[-1]
-    Lon = row0_3[-1]
-    Lat = row0_3[0].split('Lat: ')[-1]
-        
+    row0 = dfinfo[0].iloc[3].split('Time:')
+    row0_1 = row0[0].split('X:')
+    row0_2 = row0_1[0].split('Y:')
+    row0_3 = row0_2[0].split('Lon:')
+    Easting = row0_1[-1].lstrip()
+    Northing = row0_2[-1].lstrip()
+    Lon = row0_3[-1].lstrip()
+    Lat = row0_3[0].split('Lat:')[-1].lstrip()
+    # print('filename, Job_Number, Date, Time, Vessel, Area, Client, Easting, Northing, Lat, Lon')
+    # print(f'{filename}, {Job_Number}, {Date}, {Time}, {Vessel}, {Area}, {Client}, {Easting}, {Northing}, {Lat}, {Lon}')
     return filename, Job_Number, Date, Time, Vessel, Area, Client, Easting, Northing, Lat, Lon
 
 def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
@@ -309,16 +338,17 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
         # Parameters
         htmltitle = Client + " – " + Area
         # get data
-        dfvelu = pd.read_csv(f, skiprows=5, sep=" ", header=None, usecols=[3,4,6]) #[3]=depth, [4]=velocity, [6]=temperature       
-        dfvelu[3] = dfvelu[3] * -1
-        temp = round(dfvelu[6].mean(),2) # Temperature at Seabed [°C]
-        avSV = round(dfvelu[4].mean(),2) # Average SV [m/s] 
-        seabedvel = round(dfvelu[4].iloc[-1],2) # SV at Seabed [m/s]
-        depth = round(dfvelu[3].min(),2) # Max. Depth [m]
+        dfvelu = pd.read_fwf(f, skiprows=5, widths=[6,8,8], header=None)#, usecols=[3,4,6]) #[3]=depth, [4]=velocity, [6]=temperature
+        dfvelu[0] = dfvelu[0] * -1
+        temp = round(dfvelu[2].mean(),2) # Temperature at Seabed [°C]
+        avSV = round(dfvelu[1].mean(),2) # Average SV [m/s] 
+        seabedvel = round(dfvelu[1].iloc[-1],2) # SV at Seabed [m/s]
+        depth = round(dfvelu[0].min(),2) # Max. Depth [m]
         dfinfo = dfinfo.append(pd.Series([fn, Date, Time, Lat, Lon, Easting, Northing,
                                           depth, avSV, seabedvel, temp], index=dfinfo.columns), ignore_index=True)
-        
-    dfvel = pd.concat([pd.read_csv(f, skiprows=5, sep=" ", header=None, usecols=[3,4,6], names=['depth', 'velocity', 'temperature'])
+    
+    #colspecs = [(0, 3), (3, None)]   
+    dfvel = pd.concat([pd.read_fwf(f, skiprows=5, widths=[6,8,8], header=None, names=['depth', 'velocity', 'temperature'])
                        .assign(file=os.path.basename(f)) for f in velFilesSelect])
     dfvel['depth'] = dfvel['depth'] * -1
     dfvel.sort_values(['file', 'depth'], ascending=[True, False], inplace=True)
@@ -414,10 +444,10 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
                                        Temperature=dfvel['temperature'],
                                        CTD_Number=dfvel['file']))
     
-    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00")),
-                TableColumn(field="Sound_Velocity", title=svp, formatter=NumberFormatter(format="0.00")),
-                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00")),
-                TableColumn(field="CTD_Number", title="CTD Number"),
+    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00"), width=250),
+                TableColumn(field="Sound_Velocity", title=svp, formatter=NumberFormatter(format="0.00"), width=250),
+                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00"), width=250),
+                TableColumn(field="CTD_Number", title="CTD Number", width=250),
                 ]
     data_table = DataTable(source=source, columns=columns, sizing_mode="stretch_width")
     
@@ -513,7 +543,7 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
     datatbl = column(row(widgets, data_table), sizing_mode="stretch_both")
 
     ###### Info Table ######   
-    columnsInfo = [TableColumn(field=Ci, title=Ci) for Ci in dfinfo.columns] # bokeh columns
+    columnsInfo = [TableColumn(field=Ci, title=Ci, width=250) for Ci in dfinfo.columns] # bokeh columns
     info_table = DataTable(columns=columnsInfo, source=ColumnDataSource(dfinfo), autosize_mode="fit_columns", 
                            height=25*len(dfinfo)+25) # bokeh table
     
@@ -802,9 +832,7 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
     script, div = components({'p': final, 'tblData': datatbl, 'tblInfo': infotbl})
     
     html = template.render(js_resources=js_resources,css_resources=css_resources,plot_script=script,plot_div=div,velCalc=velCalc,
-                           title=htmltitle,filename=filename,location=Area,lat=Lat,lon=Lon,easting=Easting,northing=Northing,
-                           instrument=instrument,geodetic=geodetic,date=Date,time=Time,temp=temp,avSV=avSV,SVS=seabedvel,
-                           depth=depth)
+                           title=htmltitle,filename=filename,location=Area, instrument=instrument,geodetic=geodetic)
     ###### -- end -- ########
 
     ###### -- save the document in a HTML -- ########
@@ -820,9 +848,9 @@ def multiplegraph(velFilesSelect, outputFolder, velCalc, instrument, geodetic):
 def multi_table(d,sv,t,svp):
     source = ColumnDataSource(data=dict())
     source.data = {'Depth': d, 'SoundVelocity': sv, 'Temperature': t}
-    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00")),
-                TableColumn(field="SoundVelocity", title=svp, formatter=NumberFormatter(format="0.00")),
-                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00")),
+    columns = [TableColumn(field="Depth", title="Depth [m]", formatter=NumberFormatter(format="0.00"), width=250),
+                TableColumn(field="SoundVelocity", title=svp, formatter=NumberFormatter(format="0.00"), width=250),
+                TableColumn(field="Temperature", title="Temperature [°C]", formatter=NumberFormatter(format="0.00"), width=250),
                 ]
     data_table = DataTable(source=source, columns=columns, autosize_mode="fit_columns")
     return data_table
@@ -836,9 +864,11 @@ def progressBar(cmd, pbar, index, ls):
     if cmd:
         pbar.update(1)
     else:
-        print_progress(index, len(ls)) # to have a nice progress bar in the GU            
-        if index % math.ceil(len(ls)/10) == 0: # decimate print
-            print(f"Files Process: {index+1}/{len(ls)}", flush=True) 
+        print_progress(index, len(ls)) # to have a nice progress bar in the GUI            
+        if index % math.ceil(len(ls)/10) == 0 and index != (len(ls) - 1): # decimate print
+            print(f"Files Process: {index+1}/{len(ls)}", flush=True)
+        if index == (len(ls) - 1):
+            print(f"Files Process: {index+1}/{len(ls)}", flush=True)
 
 if __name__ == "__main__":
     now = datetime.datetime.now() # time the process
